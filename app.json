@@ -1,25 +1,50 @@
 {
   "expo": {
-    "name": "interview-qa-app",
+    "name": "面试题库",
     "slug": "interview-qa-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "scheme": "interview-qa",
+    "splash": {
+      "backgroundColor": "#0F0F0F",
+      "resizeMode": "contain"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zsm.interviewqa",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "面试题库需要使用语音识别来将你的口头回答转写成文字",
+        "NSMicrophoneUsageDescription": "面试题库需要访问麦克风来录制你的语音回答"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0F0F0F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "package": "com.zsm.interviewqa",
+      "permissions": [
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-asset",
+      "expo-audio"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "05955602-8fe9-46f7-96ef-459527b801f8"
+      }
+    },
+    "owner": "simon_8000"
   }
 }
