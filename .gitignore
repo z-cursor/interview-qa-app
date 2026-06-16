@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Android 构建产物
+*.apk
+*.aab
+app/build/
+*/build/
