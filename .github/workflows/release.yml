@@ -80,15 +80,15 @@ jobs:
         run: |
           BUILD_URL="${{ steps.build.outputs.build_url }}"
           curl -L -H "Authorization: Bearer $EXPO_TOKEN" \
-               -o "interview-qa-app.apk" \
+               -o "背了么.apk" \
                "$BUILD_URL"
-          ls -lh interview-qa-app.apk
+          ls -lh 背了么.apk
 
       - name: 上传 APK 为 workflow artifact（临时留存）
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: interview-qa-app.apk
+          path: 背了么.apk
           retention-days: 7
 
     outputs:
@@ -101,6 +101,11 @@ jobs:
     permissions:
       contents: write    # 创建 Release 需要写权限
     steps:
+      - name: Checkout 代码（需要 git 历史生成 Changelog）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 拉取完整历史 + 所有 tag，否则 git log/tag 不可用
+
       - name: 下载 APK artifact
         uses: actions/download-artifact@v4
         with:
@@ -141,7 +146,7 @@ jobs:
         with:
           name: "v${{ steps.version.outputs.version }}"
           body_path: CHANGELOG.md
-          files: interview-qa-app.apk
+          files: 背了么.apk
           draft: false
           prerelease: false
           generate_release_notes: false

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "面试题库",
+    "name": "背了么",
     "slug": "interview-qa-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,8 +15,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.zsm.interviewqa",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "面试题库需要使用语音识别来将你的口头回答转写成文字",
-        "NSMicrophoneUsageDescription": "面试题库需要访问麦克风来录制你的语音回答"
+        "NSSpeechRecognitionUsageDescription": "背了么需要使用语音识别来将你的口头回答转写成文字",
+        "NSMicrophoneUsageDescription": "背了么需要访问麦克风来录制你的语音回答"
       }
     },
     "android": {
