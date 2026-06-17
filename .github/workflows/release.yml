@@ -1,0 +1,149 @@
+name: Build & Release
+
+# ── 触发器：打 tag 推送时自动运行 ──
+on:
+  push:
+    tags:
+      - 'v*'        # 匹配 v1.0.0, v2.3.1 等
+  workflow_dispatch:  # 允许在 GitHub 页面手动触发
+    inputs:
+      profile:
+        description: 'EAS build profile'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - preview
+
+# 全局权限声明：不依赖仓库 Settings，自描述、可复现
+permissions:
+  contents: write  # 创建 Release + 上传附件
+  actions: read    # 下载 workflow artifact
+
+# 两处并发写 Release 会丢附件或互相覆盖，同一时刻只允许一个 publish job 跑
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Job 1：触发 EAS Build + 下载 APK ──
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 安装 EAS CLI
+        run: npm install -g eas-cli
+
+      - name: 确定构建 Profile
+        id: profile
+        run: |
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
+
+      - name: 触发 EAS 云端构建 + 等待完成
+        id: build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build \
+            --platform android \
+            --profile "${{ steps.profile.outputs.profile }}" \
+            --non-interactive \
+            --json \
+            --wait \
+            | tee build-result.json
+
+          BUILD_URL=$(jq -r '.[0].artifacts.buildUrl // empty' build-result.json)
+          if [ -z "$BUILD_URL" ]; then
+            echo "❌ 构建失败：未获取到 buildUrl"
+            cat build-result.json
+            exit 1
+          fi
+
+          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+          echo "✅ 构建完成: $BUILD_URL"
+
+      - name: 下载 APK 产物
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_URL="${{ steps.build.outputs.build_url }}"
+          curl -L -H "Authorization: Bearer $EXPO_TOKEN" \
+               -o "interview-qa-app.apk" \
+               "$BUILD_URL"
+          ls -lh interview-qa-app.apk
+
+      - name: 上传 APK 为 workflow artifact（临时留存）
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: interview-qa-app.apk
+          retention-days: 7
+
+    outputs:
+      build_url: ${{ steps.build.outputs.build_url }}
+
+  # ── Job 2：创建 GitHub Release + 附加 APK ──
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # 创建 Release 需要写权限
+    steps:
+      - name: 下载 APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+
+      - name: 提取版本号
+        id: version
+        run: |
+          # 从 tag 中提取版本号 (v1.2.3 → 1.2.3)
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: 生成 Changelog（从 git log）
+        id: changelog
+        run: |
+          # 取上一个 tag 到当前 tag 之间的 commit，没有上一个 tag 就取全部
+          PREV_TAG=$(git tag --sort=-creatordate | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..${{ github.ref_name }}"
+          else
+            RANGE="${{ github.ref_name }}"
+          fi
+
+          echo "## 📝 变更记录" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          git log "$RANGE" --pretty=format:"- %s (%h)" --no-merges >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "📱 **构建时间**: $(date -u +'%Y-%m-%d %H:%M UTC')" >> CHANGELOG.md
+          echo "🔗 **EAS 构建详情**: ${{ needs.build.outputs.build_url }}" >> CHANGELOG.md
+
+          cat CHANGELOG.md
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.version.outputs.version }}"
+          body_path: CHANGELOG.md
+          files: interview-qa-app.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
